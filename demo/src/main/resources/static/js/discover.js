@@ -5,10 +5,7 @@
  *  - piyasaYukle()          — BIST 100 piyasa verisini API'den çeker
  *  - endeksOzetCiz()        — XU100 endeks kutucuklarını günceller
  *  - kesfetKategorileriYukle() / Ciz() — Tematik kategori kutucukları
- *  - aramaDegisti()         — Arama kutusu input handler'ı
  *  - kesfetFiltrele()       — Tabloda anlık filtreleme ve sıralama
- *  - hisseAramaDropdown()   — API ile canlı arama dropdown'ı
- *  - aramaEnter()           — Enter tuşu ile hızlı arama
  *  - hisseSecVeAc()         — Hisse seçip teknik analiz ekranına geçiş
  *  - sirala()               — Tablo sıralaması
  *  - kesfetTablosuCiz()     — BIST 100 tablosunu render eder
@@ -183,17 +180,13 @@ function kesfetKategorileriCiz(kategoriler, guncellemeNotu) {
     alan.appendChild(note);
 }
 
-// ── Arama ─────────────────────────────────────────────────────────────────────
-
-/**
- * Arama kutusu değiştiğinde hem tabloyu filtreler hem de
- * 250ms gecikme ile API dropdown aramasını tetikler.
- */
-function aramaDegisti() {
-    kesfetFiltrele();
-    clearTimeout(aramaTimer);
-    aramaTimer = setTimeout(() => hisseAramaDropdown(), 250);
-}
+// Tabloyu filtrelemek için input listener
+document.addEventListener('DOMContentLoaded', () => {
+    const kesfetArama = document.getElementById('kesfetArama');
+    if (kesfetArama) {
+        kesfetArama.addEventListener('input', kesfetFiltrele);
+    }
+});
 
 /**
  * Piyasa verisi üzerinde anlık filtreleme ve sıralama yaparak tabloyu günceller.
@@ -224,79 +217,7 @@ function kesfetFiltrele() {
     kesfetTablosuCiz(liste);
 }
 
-/**
- * /api/hisse-ara endpoint'i ile dropdown arama sonuçlarını gösterir.
- */
-async function hisseAramaDropdown() {
-    const q        = document.getElementById('kesfetArama').value.trim().toUpperCase();
-    const dropdown = document.getElementById('aramaDropdown');
 
-    if (q.length < 2) {
-        dropdown.style.display = 'none';
-        dropdown.innerHTML     = '';
-        return;
-    }
-
-    dropdown.style.display = 'block';
-    dropdown.innerHTML     = `<div class="arama-dropdown-header">Hisse aranıyor...</div>`;
-
-    try {
-        const res = await fetch(`/api/hisse-ara?q=${encodeURIComponent(q)}`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-        const d = await res.json();
-        if (d.durum !== 'basarili') throw new Error(d.mesaj || 'Arama yapılamadı.');
-
-        const sonuclar = d.sonuclar || [];
-
-        if (sonuclar.length === 0) {
-            dropdown.innerHTML = `
-                <div class="arama-dropdown-header">Sonuç bulunamadı</div>
-                <div class="arama-sonuc">
-                    <span class="arama-ad">Bu kod için Borsa İstanbul hissesi bulunamadı.</span>
-                </div>
-            `;
-            return;
-        }
-
-        dropdown.innerHTML = `<div class="arama-dropdown-header">Sonuçlar</div>`;
-
-        sonuclar.forEach(s => {
-            const item     = document.createElement('div');
-            item.className = 'arama-sonuc';
-            item.onclick   = () => hisseSecVeAc(s.kod);
-            item.innerHTML = `
-                <span class="arama-kod">${escapeHtml(s.kod)}</span>
-                <span class="arama-ad">${escapeHtml(s.ad || s.kod)}</span>
-                <span class="arama-tip">${s.fiyatVar === false ? 'Veri sınırlı' : 'Hisse'}</span>
-            `;
-            dropdown.appendChild(item);
-        });
-
-    } catch (err) {
-        dropdown.innerHTML = `
-            <div class="arama-dropdown-header">Arama hatası</div>
-            <div class="arama-sonuc">
-                <span class="arama-ad">${escapeHtml(err.message)}</span>
-            </div>
-        `;
-    }
-}
-
-/**
- * Enter tuşuna basıldığında arama kutusundaki değere göre hisseyi açar.
- *
- * @param {KeyboardEvent} event
- */
-function aramaEnter(event) {
-    if (event.key !== 'Enter') return;
-
-    const q = document.getElementById('kesfetArama').value.trim().toUpperCase();
-    if (q.length < 2) return;
-
-    const exact = piyasaVerisi.find(h => h.hisse === q);
-    hisseSecVeAc(exact ? exact.hisse : q);
-}
 
 /**
  * Verilen hisse kodunu seçip teknik analiz ekranını açar.
@@ -305,8 +226,8 @@ function aramaEnter(event) {
  * @param {string} kod - Hisse kodu
  */
 async function hisseSecVeAc(kod) {
-    document.getElementById('aramaDropdown').style.display = 'none';
-    document.getElementById('kesfetArama').value           = kod;
+    const inputEl = document.getElementById('kesfetArama');
+    if(inputEl) inputEl.value = kod;
 
     if (!piyasaVerisi.some(h => h.hisse === kod)) {
         try {
@@ -372,18 +293,34 @@ function kesfetTablosuCiz(liste) {
 
 // ── Teknik Analiz ─────────────────────────────────────────────────────────────
 
-/**
- * Teknik analiz sekmesini açar ve /api/teknik endpoint'inden veri çeker.
- *
- * @param {string} hisse - Analiz edilecek hisse kodu
- */
-async function teknikAnalizAc(hisse) {
-    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-    document.getElementById('teknikAnaliz').classList.add('active');
-    menuAktifYap(0);
+let aktifTeknikHisse = null;
+let aktifTeknikData = null;
+
+async function teknikAnalizAc(hisse, options = {}) {
+    window.aktifTeknikHisse = hisse;
+
+    if (!options.silentRefresh) {
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        document.getElementById('teknikAnaliz').classList.add('active');
+        
+        // Tab menüsünü göster ve ilk sekmeyi aktif et
+        document.getElementById('teknikTabMenu').style.display = 'flex';
+        document.querySelectorAll('#teknikTabMenu .portfolio-tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelector('#teknikTabMenu .portfolio-tab-btn').classList.add('active');
+
+        if (typeof menuAktifYap === 'function') menuAktifYap(0); // Keşfet seçili kalabilir veya none
+        if (typeof restartAutoRefresh === 'function') restartAutoRefresh();
+    }
 
     document.getElementById('teknikBaslik').innerText  = `${hisse} Teknik Analiz`;
+    if (typeof stockxerUser !== 'undefined' && stockxerUser && stockxerUser.id) {
+        document.getElementById('btnTeknikNot').style.display = 'block';
+    } else {
+        document.getElementById('btnTeknikNot').style.display = 'none';
+    }
     document.getElementById('teknikIcerik').innerHTML  = '<div class="status-text">Teknik veriler yükleniyor...</div>';
+    
+    aktifTeknikHisse = hisse;
 
     try {
         const res = await fetch(`/api/teknik?hisse=${encodeURIComponent(hisse)}`);
@@ -392,6 +329,8 @@ async function teknikAnalizAc(hisse) {
         const d = await res.json();
         if (d.durum !== 'basarili') throw new Error(d.mesaj || 'Teknik analiz alınamadı.');
 
+        aktifTeknikData = d;
+
         if (d.veriVar === false) {
             teknikVeriYokCiz(d);
             teknikHaberleriYukle(hisse);
@@ -399,6 +338,7 @@ async function teknikAnalizAc(hisse) {
         }
 
         teknikAnalizCiz(d);
+        teknikTabGoster('genelBakis'); // Varsayılan sekme
         teknikHaberleriYukle(hisse);
 
     } catch (err) {
@@ -449,104 +389,179 @@ function teknikVeriYokCiz(d) {
     `;
 }
 
-/**
- * Teknik analiz verilerini (metrik kartlar, yorum, grafikler, haberler) ekrana yazar.
- *
- * @param {Object} d - /api/teknik yanıt objesi
- */
 function teknikAnalizCiz(d) {
     const degisimClass = d.degisimYuzde > 0 ? 'positive' : d.degisimYuzde < 0 ? 'negative' : 'neutral';
     
-    const mevcutHisse = portfoy.find(p => p.hisse === d.hisse);
-    const mevcutAdet = mevcutHisse ? mevcutHisse.adet : 0;
+    const mevcutHisse = typeof portfoy !== 'undefined' ? portfoy.find(p => p.symbol === d.hisse || p.hisse === d.hisse) : null;
+    const mevcutAdet = mevcutHisse ? (mevcutHisse.quantity || mevcutHisse.adet || 0) : 0;
     const isSatDisabled = mevcutAdet === 0 ? 'disabled title="Bu hisse portföyünde yok."' : '';
 
+    // İçeriği gizli tab container'larına bölelim
     document.getElementById('teknikIcerik').innerHTML = `
         <div class="teknik-islem-bar">
             <button class="btn-teknik-buy" onclick="islemPanelAc('${escapeJs(d.hisse)}', 'al', ${Number(d.guncelFiyat)}, ${mevcutAdet})">Hisse Al</button>
             <button class="btn-teknik-sell" ${isSatDisabled} onclick="islemPanelAc('${escapeJs(d.hisse)}', 'sat', ${Number(d.guncelFiyat)}, ${mevcutAdet})">Hisse Sat</button>
         </div>
-        <div class="cards-grid">
-            <div class="metric-card">
-                <div class="metric-label">Güncel Fiyat</div>
-                <div class="metric-value">${formatTL(d.guncelFiyat)}</div>
+
+        <!-- 1) Genel Bakış -->
+        <div id="teknikTab_genelBakis" class="teknik-subtab">
+            <div class="cards-grid">
+                <div class="metric-card">
+                    <div class="metric-label">Güncel Fiyat</div>
+                    <div class="metric-value">${formatTL(d.guncelFiyat)}</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Günlük Değişim</div>
+                    <div class="metric-value ${degisimClass}">${formatYuzde(d.degisimYuzde)}</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Değişim TL</div>
+                    <div class="metric-value ${degisimClass}">${formatTL(d.degisimTl)}</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Hacim</div>
+                    <div class="metric-value">${formatSayi(d.hacim)}</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Günlük Yüksek</div>
+                    <div class="metric-value">${formatTL(d.gunlukYuksek)}</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Günlük Düşük</div>
+                    <div class="metric-value">${formatTL(d.gunlukDusuk)}</div>
+                </div>
             </div>
-            <div class="metric-card">
-                <div class="metric-label">Günlük Değişim</div>
-                <div class="metric-value ${degisimClass}">${formatYuzde(d.degisimYuzde)}</div>
-            </div>
-            <div class="metric-card">
-                <div class="metric-label">Değişim TL</div>
-                <div class="metric-value ${degisimClass}">${formatTL(d.degisimTl)}</div>
-            </div>
-            <div class="metric-card">
-                <div class="metric-label">Hacim</div>
-                <div class="metric-value">${formatSayi(d.hacim)}</div>
-            </div>
-            <div class="metric-card">
-                <div class="metric-label">Günlük Yüksek</div>
-                <div class="metric-value">${formatTL(d.gunlukYuksek)}</div>
-            </div>
-            <div class="metric-card">
-                <div class="metric-label">Günlük Düşük</div>
-                <div class="metric-value">${formatTL(d.gunlukDusuk)}</div>
-            </div>
-            <div class="metric-card">
-                <div class="metric-label">7 Günlük Ortalama</div>
-                <div class="metric-value">${formatTL(d.hareketliOrtalama7)}</div>
-            </div>
-            <div class="metric-card">
-                <div class="metric-label">RSI 14</div>
-                <div class="metric-value">${formatSayi(d.rsi)}</div>
+            
+            <div class="analysis-comment" style="margin-top:20px;">
+                ${escapeHtml(d.yorum || 'Teknik veri özeti oluşturulamadı.')}
             </div>
         </div>
 
-        <div class="analysis-comment">
-            ${escapeHtml(d.yorum || 'Teknik veri özeti oluşturulamadı.')}
-        </div>
-
-        <div class="charts-grid">
-            <div class="chart-box">
-                <h3>Son 30 Gün Fiyat Grafiği</h3>
-                <div class="chart-desc">Mavi çizgi kapanış fiyatını, turuncu çizgi 7 günlük ortalamayı gösterir.</div>
-                <canvas id="fiyatGrafik" width="1000" height="280"></canvas>
-            </div>
-
-            <div class="chart-box">
-                <h3>Son 30 Gün Günlük Değişim (%)</h3>
-                <div class="chart-desc">Her bar bir önceki kapanışa göre günlük yüzdesel değişimi gösterir.</div>
-                <canvas id="degisimGrafik" width="1000" height="280"></canvas>
-            </div>
-
-            <div class="chart-box">
-                <h3>Son 30 Gün Hacim Grafiği</h3>
-                <div class="chart-desc">Barlar günlük işlem hacmini, çizgi ise ortalama hacmi gösterir.</div>
-                <canvas id="hacimGrafik" width="1000" height="280"></canvas>
-            </div>
-
-            <div class="chart-box">
-                <h3>Gün İçi Yüksek - Düşük Aralığı</h3>
-                <div class="chart-desc">Her dikey çizgi ilgili günün en düşük ve en yüksek fiyat aralığını gösterir.</div>
-                <canvas id="aralikGrafik" width="1000" height="280"></canvas>
+        <!-- 2) Grafikler -->
+        <div id="teknikTab_grafikler" class="teknik-subtab" style="display:none;">
+            <div class="charts-grid">
+                <div class="chart-box">
+                    <h3>Son 30 Gün Fiyat Grafiği</h3>
+                    <div class="chart-desc">Mavi çizgi kapanış fiyatını, turuncu çizgi 7 günlük ortalamayı gösterir.</div>
+                    <canvas id="fiyatGrafik" width="1000" height="280"></canvas>
+                </div>
+                <div class="chart-box">
+                    <h3>Son 30 Gün Günlük Değişim (%)</h3>
+                    <div class="chart-desc">Her bar bir önceki kapanışa göre günlük yüzdesel değişimi gösterir.</div>
+                    <canvas id="degisimGrafik" width="1000" height="280"></canvas>
+                </div>
             </div>
         </div>
 
-        <div class="teknik-haber-box">
-            <h3>Bu Hisseyle İlgili Haberler</h3>
-            <p class="sub-text">Haber Akışı bölümündeki filtreli haber mantığıyla listelenir.</p>
-            <ul class="teknik-haber-list" id="teknikHaberListesi">
-                <li class="haber-yukleniyor">Haberler yükleniyor...</li>
-            </ul>
+        <!-- 3) Göstergeler -->
+        <div id="teknikTab_gostergeler" class="teknik-subtab" style="display:none;">
+            <div class="cards-grid" style="margin-bottom: 24px;">
+                <div class="metric-card">
+                    <div class="metric-label">RSI 14</div>
+                    <div class="metric-value">${formatSayi(d.rsi)}</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">7 Günlük Ortalama</div>
+                    <div class="metric-value">${formatTL(d.hareketliOrtalama7)}</div>
+                </div>
+            </div>
+            <div class="charts-grid">
+                <div class="chart-box">
+                    <h3>Son 30 Gün Hacim Grafiği</h3>
+                    <canvas id="hacimGrafik" width="1000" height="280"></canvas>
+                </div>
+                <div class="chart-box">
+                    <h3>Gün İçi Yüksek - Düşük Aralığı</h3>
+                    <canvas id="aralikGrafik" width="1000" height="280"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4) Haberler -->
+        <div id="teknikTab_haberler" class="teknik-subtab" style="display:none;">
+            <div class="teknik-haber-box">
+                <h3>Bu Hisseyle İlgili Haberler</h3>
+                <ul class="teknik-haber-list" id="teknikHaberListesi">
+                    <li class="haber-yukleniyor">Haberler yükleniyor...</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- 5) AI Yorumu -->
+        <div id="teknikTab_aiYorumu" class="teknik-subtab" style="display:none;">
+            <div class="analysis-comment" style="text-align: center; margin-bottom: 20px;">
+                <h3>STOCKER AI Analizi</h3>
+                <p class="sub-text">Yapay zeka asistanı, fiyat hareketlerini, RSI durumunu ve genel teknik görünümü yorumlasın.</p>
+                <button class="portfolio-auth-primary" style="margin-top:10px;" onclick="aiYorumIste()">AI Yorumu İste ✨</button>
+            </div>
+            <div id="aiYorumSonucContainer" style="display:none; padding:20px; background:var(--card-bg); border-radius:12px; border:1px solid var(--border-color);">
+                <div id="aiYorumSonucText" style="line-height:1.6;"></div>
+            </div>
         </div>
     `;
 
-    // DOM hazır olduktan sonra grafikleri çiz
+    // Grafikleri çiz ama display:none içindeki canvaslar bazen boyut sorunu yaşar.
+    // Chart.js bunu genelde çözer ama yine de çizelim.
     setTimeout(() => {
         fiyatGrafikCiz('fiyatGrafik',   d.grafik || []);
         degisimGrafikCiz('degisimGrafik', d.grafik || []);
         hacimGrafikCiz('hacimGrafik',   d.grafik || []);
         aralikGrafikCiz('aralikGrafik', d.grafik || []);
     }, 50);
+}
+
+window.teknikTabGoster = function(tabId, btnElement) {
+    document.querySelectorAll('.teknik-subtab').forEach(t => t.style.display = 'none');
+    
+    if (btnElement) {
+        document.querySelectorAll('#teknikTabMenu .portfolio-tab-btn').forEach(b => b.classList.remove('active'));
+        btnElement.classList.add('active');
+    }
+    
+    const target = document.getElementById(`teknikTab_${tabId}`);
+    if (target) target.style.display = 'block';
+};
+
+window.aiYorumIste = async function() {
+    if (!aktifTeknikHisse) return;
+    
+    const container = document.getElementById('aiYorumSonucContainer');
+    const textEl = document.getElementById('aiYorumSonucText');
+    
+    container.style.display = 'block';
+    textEl.innerHTML = '<div class="status-text">STOCKER AI hisseyi analiz ediyor... Lütfen bekleyin.</div>';
+
+    try {
+        const payload = { 
+            message: `${aktifTeknikHisse} hissesi için son 30 günlük fiyat hareketleri, hacim ve RSI gibi göstergeleri dikkate alarak detaylı bir teknik analiz yorumu yapar mısın? Kısa, orta vadeli görünüm ve destek/direnç noktalarını belirt.`,
+            history: [] 
+        };
+
+        const response = await fetch('/api/ai/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            textEl.innerHTML = formatMarkdown(data.reply);
+        } else {
+            textEl.innerHTML = `<span class="negative">Hata: ${escapeHtml(data.message)}</span>`;
+        }
+    } catch (e) {
+        textEl.innerHTML = `<span class="negative">Bağlantı hatası: ${e.message}</span>`;
+    }
+};
+
+function formatMarkdown(text) {
+    if (!text) return '';
+    let html = text.replace(/\\n/g, '<br>');
+    html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+    html = html.replace(/- (.*?)(<br>|$)/g, '<li>$1</li>');
+    html = html.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
+    return html;
 }
 
 /**

@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Stockxer – Türk Borsası (BIST) için gerçek zamanlı hisse fiyatları, teknik analiz, portföy yönetimi ve haber akışı.">
-    <title>Stockxer | Finans Terminali</title>
-    <link rel="stylesheet" href="/css/style.css?v=2">
+    <meta name="description" content="Stoxer – Türk Borsası (BIST) için gerçek zamanlı hisse fiyatları, teknik analiz, portföy yönetimi ve haber akışı.">
+    <title>Stoxer | Finans Terminali</title>
+    <link rel="stylesheet" href="/css/style.css?v=3">
 </head>
 <body>
 
@@ -14,109 +14,206 @@
      ═══════════════════════════════════════════════════════ -->
 <div class="sidebar" id="sidebar">
     <div class="logo-box" onclick="sidebarToggle()">
-        <img src="logo.jpg" alt="Stockxer Logo">
-        <h2 class="logo-text">Stockxer</h2>
+        <img src="logo.jpg" alt="Stoxer Logo">
+        <h2 class="logo-text">Stoxer</h2>
     </div>
 
-    <div class="menu-item active" onclick="sekmeGoster('kesfet', this)">Keşfet</div>
-    <div class="menu-item"        onclick="sekmeGoster('portfoy', this)">Portföyüm</div>
-    <div class="menu-item"        onclick="sekmeGoster('haberler', this)">Haber Akışı</div>
+    <div class="menu-item active" data-tab="dashboard" onclick="sekmeGoster('dashboard', this)">Dashboard</div>
+    <div class="menu-item"        data-tab="kesfet"    onclick="sekmeGoster('kesfet', this)">Keşfet</div>
+    <div class="menu-item"        data-tab="portfoy"   onclick="sekmeGoster('portfoy', this)">Portföyüm</div>
+    <div class="menu-item"        data-tab="haberler"  onclick="haberSayfasiAc('turkBorsasi', this)">Haber Akışı</div>
+    <div class="sidebar-submenu news-submenu">
+        <div class="submenu-item active" data-news-cat="turkBorsasi" onclick="haberSayfasiAc('turkBorsasi', this)">Türk Borsası</div>
+        <div class="submenu-item" data-news-cat="genelPiyasa" onclick="haberSayfasiAc('genelPiyasa', this)">Genel Piyasa</div>
+        <div class="submenu-item" data-news-cat="portfoyum" onclick="haberSayfasiAc('portfoyum', this)">Portföyüm</div>
+        <div class="submenu-item" data-news-cat="watchlist" onclick="haberSayfasiAc('watchlist', this)">Watchlist</div>
+        <div class="submenu-item" data-news-cat="ekonomi" onclick="haberSayfasiAc('ekonomi', this)">Ekonomi</div>
+    </div>
+
+    <div class="sidebar-bottom">
+        <div class="user-account-box" id="userAccountBox" onclick="authModalAc()">
+            <div class="user-avatar" id="userAvatar">👤</div>
+            <div class="user-account-info">
+                <div id="userAccountTitle">Hesap</div>
+                <div id="userAccountSubtitle">Giriş yap veya kayıt ol</div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════
      İçerik Alanı
      ═══════════════════════════════════════════════════════ -->
 <div class="content-area">
+    <!-- Otomatik Yenileme Barı -->
+    <div class="refresh-status-bar" id="refreshStatusBar">
+        <span class="refresh-dot" id="marketStatusDot"></span>
+        <span id="marketStatusText" style="font-weight: 600; color: var(--text-primary);">Piyasa durumu kontrol ediliyor...</span>
+        <span style="opacity: 0.5; margin: 0 4px;">|</span>
+        <span id="lastRefreshText">Son güncelleme: -</span>
+        <button class="refresh-now-btn" onclick="refreshActiveTab()">Şimdi yenile</button>
+        <label class="auto-refresh-toggle">
+            <input type="checkbox" id="autoRefreshToggle" checked onchange="setAutoRefreshEnabled(this.checked)">
+            <div class="toggle-switch" style="display:inline-block; vertical-align:middle; margin-right:6px;">
+                <span class="slider"></span>
+            </div>
+            Otomatik Yenileme
+        </label>
+    </div>
+
+    <!-- ── Dashboard Sekmesi ─────────────────────────────── -->
+    <div id="dashboard" class="tab-content active">
+        <!-- Günlük Rapor (Faz 2) -->
+        <div id="dailyReportContainer" class="daily-report-card" style="display:none;">
+            <div class="daily-report-header">Bugünkü Portföy Özeti</div>
+            <div class="daily-report-summary" id="dailyReportSummaryText"></div>
+            <div class="daily-report-grid">
+                <div class="dr-item">
+                    <div class="dr-item-label">Günlük K/Z</div>
+                    <div class="dr-item-value" id="dailyReportKzVal">-</div>
+                </div>
+                <div class="dr-item">
+                    <div class="dr-item-label">En İyi</div>
+                    <div class="dr-item-value" id="dailyReportBest">-</div>
+                </div>
+                <div class="dr-item">
+                    <div class="dr-item-label">En Zayıf</div>
+                    <div class="dr-item-value" id="dailyReportWorst">-</div>
+                </div>
+                <div class="dr-item">
+                    <div class="dr-item-label">Aktif Alarm</div>
+                    <div class="dr-item-value" id="dailyReportAlertCount">-</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dinamik olarak dashboard.js tarafından doldurulacak -->
+        <div id="dashboardContainer">
+            <div class="status-text">Dashboard Yükleniyor...</div>
+        </div>
+    </div>
 
     <!-- ── Keşfet Sekmesi ─────────────────────────────── -->
-    <div id="kesfet" class="tab-content active">
-        <div class="section-title">
-            <div>
-                <h2>Keşfet</h2>
-                <p class="sub-text">Ana listede BIST 100 hisseleri görünür. Arama kutusundan tüm Borsa İstanbul hisselerini arayabilirsin.</p>
-            </div>
-            <button class="btn-secondary" onclick="piyasaYukle()">Yenile</button>
+    <div id="kesfet" class="tab-content">
+        <!-- AI & Piyasa Mod Geçişi -->
+        <div class="kesfet-mode-tabs">
+            <button id="btnModePiyasa" class="kesfet-mode-btn active" onclick="kesfetAltSekmeGoster('piyasa')">Piyasa Keşfi</button>
+            <button id="btnModeAi" class="kesfet-mode-btn" onclick="kesfetAltSekmeGoster('ai')">STOXER AI</button>
         </div>
 
-        <!-- Endeks Özet Kartları -->
-        <div class="endeks-card">
-            <div class="endeks-box">
-                <div class="endeks-label">BIST 100</div>
-                <div class="endeks-value" id="xu100Fiyat">Yükleniyor...</div>
-            </div>
-            <div class="endeks-box">
-                <div class="endeks-label">Günlük Değişim</div>
-                <div class="endeks-value" id="xu100Degisim">-</div>
-            </div>
-            <div class="endeks-box">
-                <div class="endeks-label">Değişim TL</div>
-                <div class="endeks-value" id="xu100DegisimTl">-</div>
-            </div>
-            <div class="endeks-box">
-                <div class="endeks-label">BIST 100 Hisse Sayısı</div>
-                <div class="endeks-value" id="xu100Adet">100</div>
-            </div>
-        </div>
-
-        <!-- Arama Araç Çubuğu -->
-        <div class="kesfet-toolbar">
-            <div class="search-box">
-                <input
-                    type="text"
-                    id="kesfetArama"
-                    placeholder="Arama"
-                    oninput="aramaDegisti()"
-                    onkeydown="aramaEnter(event)"
-                    aria-label="Hisse ara"
-                >
-                <span class="search-icon">⌕</span>
-                <div class="arama-dropdown" id="aramaDropdown"></div>
-            </div>
-            <div class="sub-text">Satıra veya arama sonucuna tıklayarak teknik analiz ekranına geçebilirsin.</div>
-        </div>
-
-        <!-- BIST 100 Tablosu -->
-        <div class="table-wrapper">
-            <table>
-                <thead>
-                <tr>
-                    <th onclick="sirala('hisse')">Hisse</th>
-                    <th onclick="sirala('sonFiyat')">Son Fiyat (TL)</th>
-                    <th onclick="sirala('degisimYuzde')">Değişim (%)</th>
-                    <th onclick="sirala('degisimTl')">Değişim (TL)</th>
-                    <th onclick="sirala('hacimTl')">Hacim (TL)</th>
-                    <th onclick="sirala('hacimAdet')">Hacim (Adet)</th>
-                </tr>
-                </thead>
-                <tbody id="kesfetTablosu">
-                    <tr><td colspan="6" class="status-text">BIST 100 verileri yükleniyor...</td></tr>
-                </tbody>
-            </table>
-        </div>
-
-        <!-- Keşfet Kategorileri -->
-        <div class="kesfet-kategori-alani" id="kesfetKategorilerAlani">
-            <div class="kategori-section">
-                <div class="kategori-header">
-                    <div class="kategori-title-wrap">
-                        <h3>Keşfet Kutucukları</h3>
-                        <p class="kategori-desc">Yabancıların favorileri, popüler takip listeleri ve tematik hisse sepetleri yükleniyor.</p>
-                    </div>
-                    <span class="kategori-rozet">Canlı veriyle güncellenir</span>
+        <!-- 1) PİYASA KEŞFİ PANELİ -->
+        <div id="kesfetPiyasaPaneli" class="kesfet-mode-panel active">
+            <div class="page-header">
+                <div>
+                    <h2>Keşfet</h2>
+                    <p class="sub-text">Ana listede BIST 100 hisseleri görünür. Arama kutusundan tüm Borsa İstanbul hisselerini arayabilirsin.</p>
                 </div>
-                <div class="status-text">Kategori verileri yükleniyor...</div>
+                <button class="btn-secondary" onclick="piyasaYukle()">Yenile</button>
+            </div>
+
+            <!-- Endeks Özet Kartları -->
+            <div class="endeks-card">
+                <div class="endeks-box">
+                    <div class="endeks-label">BIST 100</div>
+                    <div class="endeks-value" id="xu100Fiyat">Yükleniyor...</div>
+                </div>
+                <div class="endeks-box">
+                    <div class="endeks-label">Günlük Değişim</div>
+                    <div class="endeks-value" id="xu100Degisim">-</div>
+                </div>
+                <div class="endeks-box">
+                    <div class="endeks-label">Değişim TL</div>
+                    <div class="endeks-value" id="xu100DegisimTl">-</div>
+                </div>
+                <div class="endeks-box">
+                    <div class="endeks-label">BIST 100 Hisse Sayısı</div>
+                    <div class="endeks-value" id="xu100Adet">100</div>
+                </div>
+            </div>
+
+            <!-- Arama Araç Çubuğu -->
+            <div class="kesfet-toolbar">
+                <div class="search-box stock-search-container">
+                    <input type="text" id="kesfetArama" placeholder="Arama" autocomplete="off">
+                    <span class="search-icon">⌕</span>
+                    <div class="stock-dropdown" id="kesfetAramaDropdown"></div>
+                </div>
+                <div class="sub-text">Satıra veya arama sonucuna tıklayarak teknik analiz ekranına geçebilirsin.</div>
+            </div>
+
+            <!-- BIST 100 Tablosu -->
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                    <tr>
+                        <th onclick="sirala('hisse')">Hisse</th>
+                        <th onclick="sirala('sonFiyat')">Son Fiyat (TL)</th>
+                        <th onclick="sirala('degisimYuzde')">Değişim (%)</th>
+                        <th onclick="sirala('degisimTl')">Değişim (TL)</th>
+                        <th onclick="sirala('hacimTl')">Hacim (TL)</th>
+                        <th onclick="sirala('hacimAdet')">Hacim (Adet)</th>
+                    </tr>
+                    </thead>
+                    <tbody id="kesfetTablosu">
+                        <tr><td colspan="6" class="status-text">BIST 100 verileri yükleniyor...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Keşfet Kategorileri -->
+            <div class="kesfet-kategori-alani" id="kesfetKategorilerAlani">
+                <!-- Yükleniyor -->
+            </div>
+        </div>
+
+        <!-- 2) STOXER AI PANELİ -->
+        <div id="kesfetAiPaneli" class="kesfet-mode-panel">
+            <div class="ai-inline-card">
+                <div class="page-header" style="margin-bottom: 8px;">
+                    <div>
+                        <h2>STOXER AI</h2>
+                        <p class="sub-text">Teknik analiz, piyasa yorumu ve hisse kavramları hakkında soru sor.</p>
+                    </div>
+                </div>
+                <div class="ai-chat-box" id="aiChatMessages">
+                    <div class="ai-message bot">
+                        Merhaba, ben STOXER AI. Hisse, teknik analiz, piyasa yorumu veya haber etkisi hakkında soru sorabilirsin.
+                    </div>
+                </div>
+                <div class="ai-suggestions">
+                    <button class="ai-suggestion-chip" onclick="sendAiSuggestion('RSI nedir?')">RSI nedir?</button>
+                    <button class="ai-suggestion-chip" onclick="sendAiSuggestion('MACD nasıl yorumlanır?')">MACD nasıl yorumlanır?</button>
+                    <button class="ai-suggestion-chip" onclick="sendAiSuggestion('BIST100 genel görünümünü yorumla')">BIST100 genel görünümünü yorumla</button>
+                    <button class="ai-suggestion-chip" onclick="sendAiSuggestion('THYAO için teknik analiz mantığını açıkla')">THYAO teknik analiz mantığını açıkla</button>
+                </div>
+                <div class="ai-input-row">
+                    <input type="text" id="aiChatInput" placeholder="Örn: ASELS teknik olarak nasıl görünüyor?" onkeydown="aiChatEnter(event)" autocomplete="off">
+                    <button onclick="aiChatSend()">Gönder</button>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- ── Teknik Analiz Sekmesi ───────────────────────── -->
+    <!-- ── Teknik Analiz Sekmesi (TABLI YAPI) ───────────────────────── -->
     <div id="teknikAnaliz" class="tab-content">
-        <div class="section-title">
-            <div>
+        <div class="page-header">
+            <div id="teknikHeaderBlock">
                 <h2 id="teknikBaslik">Teknik Analiz</h2>
-                <p class="sub-text">Son 30 günlük fiyat, hacim, teknik göstergeler ve ilgili haberler.</p>
+                <p class="sub-text">Son fiyat, değişim oranları ve detaylı analiz.</p>
             </div>
-            <button class="btn-secondary" onclick="kesfeteDon()">← Keşfet'e Dön</button>
+            <div style="display:flex; gap: 8px;">
+                <button class="btn-note" id="btnTeknikNot" style="display:none;" onclick="if(window.aktifTeknikHisse) openStockNoteModal(window.aktifTeknikHisse)">Not / Hedef Ekle</button>
+                <button class="btn-secondary" onclick="kesfeteDon()">⬅ Keşfet'e Dön</button>
+            </div>
+        </div>
+
+        <!-- Teknik Analiz İçin Alt Sekmeler -->
+        <div class="portfolio-tabs" id="teknikTabMenu" style="display: none;">
+            <button class="portfolio-tab-btn active" onclick="teknikTabGoster('genelBakis', this)">Genel Bakış</button>
+            <button class="portfolio-tab-btn" onclick="teknikTabGoster('grafikler', this)">Grafikler</button>
+            <button class="portfolio-tab-btn" onclick="teknikTabGoster('gostergeler', this)">Göstergeler</button>
+            <button class="portfolio-tab-btn" onclick="teknikTabGoster('haberler', this)">Haberler</button>
+            <button class="portfolio-tab-btn ai-tab" onclick="teknikTabGoster('aiYorumu', this)">✨ AI Yorumu</button>
         </div>
 
         <div id="teknikIcerik">
@@ -126,108 +223,252 @@
 
     <!-- ── Portföyüm Sekmesi (Alt Sekmelerle) ───────────────────── -->
     <div id="portfoy" class="tab-content">
-        
-        <!-- Alt Sekme Menüsü -->
-        <div class="portfolio-tabs">
-            <button class="portfolio-tab-btn active" onclick="portfoySekmeGoster('portfoyAktif', this)">Aktif Portföy</button>
-            <button class="portfolio-tab-btn" onclick="portfoySekmeGoster('portfoyWatchlist', this)">Watchlist</button>
-            <button class="portfolio-tab-btn" onclick="portfoySekmeGoster('portfoyGecmis', this)">Portföy Geçmişi</button>
+        <!-- Auth Gate -->
+        <div class="portfolio-auth-gate" id="portfolioAuthGate">
+            <div class="portfolio-blur-preview"></div>
+            <div class="portfolio-auth-card">
+                <div class="auth-card-icon">🔒</div>
+                <h2>Portföyünü görüntülemek için giriş yap</h2>
+                <p>Portföyünü kaydetmek, işlem geçmişini ve kar/zarar durumunu takip etmek için hesabına giriş yap.</p>
+                <div class="portfolio-auth-actions">
+                    <button class="portfolio-auth-primary" onclick="authModalAc(); authTabGoster('login')">Giriş Yap</button>
+                    <button class="portfolio-auth-secondary" onclick="authModalAc(); authTabGoster('register')">Kayıt Ol</button>
+                </div>
+            </div>
         </div>
 
-        <!-- 1) Aktif Portföy Görünümü -->
-        <div id="portfoyAktif" class="portfolio-subtab active">
-            <div class="portfolio-header-row">
-                <div class="portfolio-title-wrap">
+        <div id="portfolioContentUnlocked" style="display: none;">
+            <!-- Alt Sekme Menüsü -->
+            <div class="portfolio-tabs">
+                <button class="portfolio-tab-btn active" data-portfolio-tab="portfoyAktif"     onclick="portfoySekmeGoster('portfoyAktif', this)">Aktif Portföy</button>
+                <button class="portfolio-tab-btn"        data-portfolio-tab="portfoyWatchlist"  onclick="portfoySekmeGoster('portfoyWatchlist', this)">Watchlist</button>
+                <button class="portfolio-tab-btn"        data-portfolio-tab="portfoyGecmis"    onclick="portfoySekmeGoster('portfoyGecmis', this)">İşlem Geçmişi</button>
+                <button class="portfolio-tab-btn"        data-portfolio-tab="portfoyAlarmlar"  onclick="portfoySekmeGoster('portfoyAlarmlar', this)">Alarmlar</button>
+            </div>
+
+            <!-- 1) Aktif Portföy Görünümü -->
+            <div id="portfoyAktif" class="portfolio-subtab" style="display:block;">
+                <div class="page-header" style="margin-bottom: 20px;">
                     <h2>Aktif Portföy</h2>
-                    <div class="portfolio-total-inline">
-                        Toplam Değer: <span id="genelToplamHeader">₺0.00</span>
+                </div>
+
+                <!-- Kar/Zarar Özet Kartları -->
+                <div class="cards-grid" id="portfolioSummaryCards" style="margin-bottom: 20px;">
+                    <div class="metric-card">
+                        <div class="metric-label">Toplam Değer</div>
+                        <div class="metric-value" id="summaryTotalValue">₺0.00</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Toplam Maliyet</div>
+                        <div class="metric-value" id="summaryTotalCost">₺0.00</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Toplam Kar/Zarar</div>
+                        <div class="metric-value" id="summaryTotalPnL">₺0.00</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Günlük Kar/Zarar</div>
+                        <div class="metric-value" id="summaryDailyPnL">₺0.00</div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Hızlı Alım Formu (Dropdown'lu) -->
-            <div class="portfolio-form">
-                <div class="search-box" style="width: 100%;">
-                    <input type="text" id="hisseInput" placeholder="Hisse (Örn: ASELS)" oninput="portfoyAramaDegisti()" onkeydown="portfoyAramaEnter(event)" autocomplete="off">
-                    <span class="search-icon">⌕</span>
-                    <div class="arama-dropdown" id="portfoyAramaDropdown"></div>
+                <!-- Faz 2: Sektör Dağılımı -->
+                <div class="portfolio-analytics-section">
+                    <div class="section-title">
+                        <div>
+                            <h2 style="font-size: 16px; margin-bottom: 4px;">Sektör Dağılımı</h2>
+                            <p class="sub-text" style="font-size: 13px;">Portföyündeki hisselerin sektörlere göre ağırlığı.</p>
+                        </div>
+                    </div>
+
+                    <div class="sector-distribution-layout">
+                        <div class="sector-chart-card">
+                            <canvas id="sectorDistributionChart"></canvas>
+                        </div>
+                        <div class="sector-list" id="sectorDistributionList">
+                            <div class="status-text">Yükleniyor...</div>
+                        </div>
+                    </div>
                 </div>
-                <input type="number" id="adetInput" placeholder="Alınacak adet">
-                <button class="btn-ekle" onclick="portfoyeAl()">Al</button>
-            </div>
 
-            <!-- Portföy Tablosu -->
-            <div class="portfolio-table-wrap">
-                <table>
-                    <thead>
-                    <tr>
-                        <th>Hisse</th>
-                        <th>Adet</th>
-                        <th>Fiyat</th>
-                        <th>Toplam</th>
-                        <th>İşlem</th>
-                    </tr>
-                    </thead>
-                    <tbody id="portfoyTablosu"></tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- 2) Watchlist Görünümü -->
-        <div id="portfoyWatchlist" class="portfolio-subtab" style="display: none;">
-            <div class="portfolio-header-row">
-                <div class="portfolio-title-wrap">
-                    <h2>Watchlist</h2>
-                    <p class="sub-text" style="margin-top: 0;">Takip etmek istediğin hisseleri listene ekle.</p>
+                <!-- Faz 3: AI Portföy Yorumu -->
+                <div class="portfolio-ai-card" id="portfolioAiCard">
+                    <div class="portfolio-ai-header">
+                        <div>
+                            <div class="portfolio-ai-title">✨ Stoxer AI Portföy Yorumu</div>
+                            <div class="portfolio-ai-subtitle">Portföyündeki dağılım, kar/zarar ve risk noktalarını AI ile özetle.</div>
+                        </div>
+                        <div class="portfolio-ai-actions">
+                            <button class="portfolio-ai-btn-primary" onclick="requestPortfolioAiReview(false)">Yorumla</button>
+                            <button class="portfolio-ai-btn-secondary" onclick="requestPortfolioAiReview(true)" title="Yeni istek atar">Yenile</button>
+                        </div>
+                    </div>
+                    
+                    <div class="portfolio-ai-result-area">
+                        <div class="portfolio-ai-cache-badge" id="portfolioAiCacheBadge">Kayıtlı Yorum</div>
+                        <div id="portfolioAiResultContent">
+                            <div class="status-text">AI yorumunu görmek için Yorumla butonuna bas.</div>
+                        </div>
+                    </div>
                 </div>
-            </div>
 
-            <div class="portfolio-form" style="grid-template-columns: 1fr auto;">
-                <div class="search-box" style="width: 100%;">
-                    <input type="text" id="watchlistInput" placeholder="İzleme listesine hisse ekle" oninput="watchlistAramaDegisti()" onkeydown="watchlistAramaEnter(event)" autocomplete="off">
-                    <span class="search-icon">⌕</span>
-                    <div class="arama-dropdown" id="watchlistAramaDropdown"></div>
+                <!-- Hızlı Alım Formu -->
+                <div class="portfolio-form">
+                    <div class="search-box stock-search-container" style="width: 100%;">
+                        <input type="text" id="hisseInput" placeholder="Hisse (Örn: ASELS)" autocomplete="off">
+                        <span class="search-icon">⌕</span>
+                        <div class="stock-dropdown" id="portfoyHisseDropdown"></div>
+                    </div>
+                    <input type="number" id="adetInput" placeholder="Alınacak adet">
+                    <button class="btn-ekle" onclick="portfoyeAl()">Al</button>
                 </div>
-                <button class="btn-ekle" onclick="watchlisteEkleManuel()">Ekle</button>
-            </div>
 
-            <div class="portfolio-table-wrap">
-                <table>
-                    <thead>
-                    <tr>
-                        <th>Hisse</th>
-                        <th>Şirket Adı</th>
-                        <th>Son Fiyat</th>
-                        <th>Değişim</th>
-                        <th>İşlem</th>
-                    </tr>
-                    </thead>
-                    <tbody id="watchlistTablosu">
-                        <tr><td colspan="5" class="status-text">Henüz izleme listene hisse eklemedin.</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- 3) Portföy Geçmişi Görünümü (Eski Performans Geçmişi) -->
-        <div id="portfoyGecmis" class="portfolio-subtab" style="display: none;">
-            <div class="section-title">
-                <div>
-                    <h2>Performans Analizi</h2>
-                    <p class="sub-text">Günlük portföy başlangıç / son değerini ve hisse bazlı kar-zarar durumunu incele.</p>
+                <!-- Portföy Tablosu (Genişletilmiş) -->
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                        <tr>
+                            <th>Hisse</th>
+                            <th>Adet</th>
+                            <th>Ort. Maliyet</th>
+                            <th>Güncel Fiyat</th>
+                            <th>Toplam Değer</th>
+                            <th>Kar/Zarar</th>
+                            <th>Ağırlık</th>
+                            <th>Notlar / Hedef</th>
+                            <th>İşlem</th>
+                        </tr>
+                        </thead>
+                        <tbody id="portfoyTablosu"></tbody>
+                    </table>
                 </div>
             </div>
 
-            <ul class="data-list" id="gecmisTablosu"></ul>
-            <div id="performansDetayAlani" style="margin-top:24px;"></div>
+            <!-- 2) İşlem Geçmişi Görünümü -->
+            <div id="portfoyGecmis" class="portfolio-subtab" style="display: none;">
+                <div class="page-header">
+                    <div>
+                        <h2>İşlem Geçmişi</h2>
+                        <p class="sub-text">Hesabında gerçekleştirdiğin alım-satım hareketleri.</p>
+                    </div>
+                </div>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                        <tr>
+                            <th>Tarih</th>
+                            <th>Hisse</th>
+                            <th>Tip</th>
+                            <th>Adet</th>
+                            <th>Fiyat</th>
+                            <th>Toplam Tutar</th>
+                        </tr>
+                        </thead>
+                        <tbody id="islemGecmisiTablosu">
+                            <tr><td colspan="6" class="status-text">Yükleniyor...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 3) Watchlist Görünümü -->
+            <div id="portfoyWatchlist" class="portfolio-subtab" style="display: none;">
+                <div class="page-header">
+                    <div>
+                        <h2>Watchlist</h2>
+                        <p class="sub-text" style="margin-top: 0;">Takip etmek istediğin hisseleri listene ekle.</p>
+                    </div>
+                </div>
+
+                <div class="portfolio-form" style="grid-template-columns: 1fr auto;">
+                    <div class="search-box stock-search-container" style="width: 100%;">
+                        <input type="text" id="watchlistInput" placeholder="İzleme listesine hisse ekle" autocomplete="off">
+                        <span class="search-icon">⌕</span>
+                        <div class="stock-dropdown" id="watchlistHisseDropdown"></div>
+                    </div>
+                    <button class="btn-ekle" onclick="watchlisteEkleManuel()">Ekle</button>
+                </div>
+
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                        <tr>
+                            <th>Hisse</th>
+                            <th>Şirket Adı</th>
+                            <th>Son Fiyat</th>
+                            <th>Değişim</th>
+                            <th>Notlar / Hedef</th>
+                            <th>İşlem</th>
+                        </tr>
+                        </thead>
+                        <tbody id="watchlistTablosu">
+                            <tr><td colspan="5" class="status-text">Henüz izleme listene hisse eklemedin.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 4) Alarmlar Alt Sekmesi -->
+            <div id="portfoyAlarmlar" class="portfolio-subtab" style="display: none;">
+                <div class="page-header" style="margin-bottom: 20px;">
+                    <div>
+                        <h2>Fiyat Alarmları</h2>
+                        <p class="sub-text">Hisse fiyatı belirlediğin seviyeye ulaştığında bildir.</p>
+                    </div>
+                </div>
+
+                <!-- Yeni Alarm Formu -->
+                <div class="portfolio-form" style="grid-template-columns: 2fr 1fr 1fr auto; margin-bottom: 24px;">
+                    <div class="stock-search-container">
+                        <input type="text" id="alarmSymbol" placeholder="Hisse (Örn: ASELS)" autocomplete="off" style="text-transform: uppercase;">
+                        <div class="stock-dropdown" id="alarmHisseDropdown"></div>
+                    </div>
+                    <select id="alarmCondition">
+                        <option value="ABOVE">Üstüne Çıkarsa</option>
+                        <option value="BELOW">Altına Düşerse</option>
+                    </select>
+                    <input type="number" id="alarmPrice" placeholder="Hedef Fiyat">
+                    <button class="btn-ekle" onclick="createAlert()">Oluştur</button>
+                </div>
+
+                <!-- Aktif Alarm Listesi -->
+                <div class="cards-grid" id="alarmsGrid">
+                    <div class="status-text">Alarmlar yükleniyor...</div>
+                </div>
+            </div>
         </div>
     </div>
 
     <!-- ── Haber Akışı Sekmesi ────────────────────────── -->
     <div id="haberler" class="tab-content">
-        <h2>Haber Akışı</h2>
-        <div id="haberTabMenu" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:20px;"></div>
-        <ul class="data-list" id="haberlerListesi"></ul>
+        <div class="news-page">
+            <div class="page-header">
+                <h2>Haber Akışı</h2>
+                <p class="sub-text">Piyasa, portföy ve ekonomi haberleri.</p>
+            </div>
+            
+            <div class="news-tabs" id="newsTabMenu">
+                <button class="news-tab-btn active" data-news-tab="turkBorsasi" onclick="haberKategoriGoster('turkBorsasi')">Türk Borsası</button>
+                <button class="news-tab-btn" data-news-tab="genelPiyasa" onclick="haberKategoriGoster('genelPiyasa')">Genel Piyasa</button>
+                <button class="news-tab-btn" data-news-tab="portfoyum" onclick="haberKategoriGoster('portfoyum')">Portföyüm</button>
+                <button class="news-tab-btn" data-news-tab="watchlist" onclick="haberKategoriGoster('watchlist')">Watchlist</button>
+                <button class="news-tab-btn" data-news-tab="ekonomi" onclick="haberKategoriGoster('ekonomi')">Ekonomi</button>
+            </div>
+            
+            <div class="news-toolbar">
+                <div class="search-box news-search-box stock-search-container">
+                    <input type="text" id="newsSearchInput" placeholder="Hisse ara: ASELS, THYAO..." autocomplete="off">
+                    <span class="search-icon">⌕</span>
+                    <div class="stock-dropdown" id="newsHisseDropdown"></div>
+                </div>
+                <button class="btn-secondary" onclick="haberAra()">Ara</button>
+                <button class="btn-secondary" onclick="haberAramaTemizle()">Temizle</button>
+            </div>
+
+            <div class="news-list" id="haberlerListesi">
+                <div class="status-text">Haberler yükleniyor...</div>
+            </div>
+        </div>
     </div>
 
 </div><!-- /content-area -->
@@ -236,82 +477,277 @@
      İşlem Paneli (Al / Sat)
      ═══════════════════════════════════════════════════════ -->
 <div class="trade-panel-backdrop" id="tradePanelBackdrop" onclick="islemPanelKapat()"></div>
-
 <div class="trade-bottom-panel" id="tradeBottomPanel">
     <div class="trade-panel-header">
-        <div class="trade-panel-title">
-            <h3 id="tradePanelTitle">İşlem Paneli</h3>
-            <div class="trade-panel-sub" id="tradePanelSub">Alım / satım emri oluştur.</div>
+        <h3 id="tradePanelTitle">İşlem Yap</h3>
+        <button class="btn-close" onclick="islemPanelKapat()">✕</button>
+    </div>
+    <div class="trade-panel-body">
+        <div class="trade-form-row">
+            <label>Hisse</label>
+            <input type="text" id="tradeHisse" readonly>
         </div>
-        <button class="trade-close-btn" onclick="islemPanelKapat()">×</button>
+        <div class="trade-form-row">
+            <label>İşlem Yönü</label>
+            <input type="text" id="tradeTip" readonly>
+        </div>
+        <div class="trade-form-row">
+            <label>Güncel Fiyat</label>
+            <input type="text" id="tradeFiyat" readonly>
+        </div>
+        <div class="trade-form-row">
+            <label>Portföyde Mevcut</label>
+            <div class="trade-value" id="tradeMevcutAdet">-</div>
+        </div>
+        <div class="trade-form-row">
+            <label>İşlem Adedi</label>
+            <input type="number" id="tradeAdet" min="1" placeholder="Adet gir" oninput="tradeTutarGuncelle()">
+        </div>
+        <div class="trade-form-row">
+            <label>Tahmini Tutar</label>
+            <div class="trade-value highlight" id="tradeTahminiTutar">₺0.00</div>
+        </div>
+
+        <button class="trade-confirm-btn" id="tradeConfirmBtn" onclick="tradeIslemOnayla()">Emri Onayla</button>
+
+        <div class="trade-history">
+            <h4>Son İşlemler</h4>
+            <ul class="trade-history-list" id="tradeHistoryList"></ul>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     Hesap & Kimlik Doğrulama Modal'ı
+     ═══════════════════════════════════════════════════════ -->
+<div class="auth-modal-backdrop" id="authModalBackdrop" onclick="authModalKapat()"></div>
+<div class="auth-modal" id="authModal">
+    <button class="auth-close-btn" onclick="authModalKapat()" aria-label="Kapat" title="Kapat">✕</button>
+
+    <!-- Giriş / Kayıt Ortak Alanı -->
+    <div id="authFormsContainer">
+        <div class="auth-tabs">
+            <button class="auth-tab-btn active" id="tabLogin"    onclick="authTabGoster('login')">Giriş Yap</button>
+            <button class="auth-tab-btn"         id="tabRegister" onclick="authTabGoster('register')">Kayıt Ol</button>
+        </div>
+
+        <div class="auth-error" id="authErrorMsg"></div>
+
+        <!-- Giriş Formu -->
+        <div class="auth-form active" id="formlogin">
+            <div class="auth-input-group">
+                <label>Email</label>
+                <input type="email" id="loginEmail" placeholder="ornek@email.com" onkeydown="authEnter(event, 'login')">
+            </div>
+            <div class="auth-input-group">
+                <label>Şifre</label>
+                <input type="password" id="loginPassword" placeholder="Şifreniz" onkeydown="authEnter(event, 'login')">
+            </div>
+            <button class="auth-primary-btn" onclick="loginUser()">Giriş Yap</button>
+        </div>
+
+        <!-- Kayıt Formu -->
+        <div class="auth-form" id="formregister">
+            <div class="auth-input-group">
+                <label>Ad Soyad</label>
+                <input type="text" id="regFullName" placeholder="Adınız Soyadınız" onkeydown="authEnter(event, 'register')">
+            </div>
+            <div class="auth-input-group">
+                <label>Email</label>
+                <input type="email" id="regEmail" placeholder="ornek@email.com" onkeydown="authEnter(event, 'register')">
+            </div>
+            <div class="auth-input-group">
+                <label>Şifre</label>
+                <input type="password" id="regPassword" placeholder="En az 6 karakter" onkeydown="authEnter(event, 'register')">
+            </div>
+            <button class="auth-primary-btn" onclick="registerUser()">Kayıt Ol</button>
+        </div>
     </div>
 
-    <div class="trade-grid">
-        <!-- Emir Formu -->
-        <div class="trade-card">
-            <h4>Emir Oluştur</h4>
-
-            <div class="trade-form-row">
-                <div class="trade-form-group">
-                    <label>Hisse</label>
-                    <input type="text" id="tradeHisse" readonly>
-                </div>
-                <div class="trade-form-group">
-                    <label>İşlem Tipi</label>
-                    <input type="text" id="tradeTip" readonly>
-                </div>
-            </div>
-
-            <div class="trade-form-row">
-                <div class="trade-form-group">
-                    <label>Adet</label>
-                    <input type="number" id="tradeAdet" min="1" placeholder="Adet gir" oninput="tradeTutarGuncelle()">
-                </div>
-                <div class="trade-form-group">
-                    <label>Güncel Fiyat</label>
-                    <input type="text" id="tradeFiyat" readonly>
-                </div>
-            </div>
-
-            <div class="trade-summary">
-                <div class="trade-summary-box">
-                    <div class="trade-summary-label">Portföydeki Adet</div>
-                    <div class="trade-summary-value" id="tradeMevcutAdet">-</div>
-                </div>
-                <div class="trade-summary-box">
-                    <div class="trade-summary-label">Tahmini Tutar</div>
-                    <div class="trade-summary-value" id="tradeTahminiTutar">₺0.00</div>
-                </div>
-                <div class="trade-summary-box">
-                    <div class="trade-summary-label">Emir Durumu</div>
-                    <div class="trade-summary-value neutral">Hazır</div>
-                </div>
-            </div>
-
-            <button class="trade-confirm-btn buy" id="tradeConfirmBtn" onclick="tradeIslemOnayla()">
-                İşlemi Onayla
-            </button>
+    <!-- Giriş Yapılmış Durum (Hesabım / Kullanıcı Ayarları) -->
+    <div id="authLoggedIn" style="display:none;" class="account-settings-panel">
+        <div class="auth-modal-header">
+            <h3>Stoxer Hesabı</h3>
+            <p class="sub-text">Hesap bilgilerinizi ve tercihlerinizi yönetin.</p>
         </div>
 
-        <!-- Emir Geçmişi -->
-        <div class="trade-card">
-            <h4>Geçmiş Emirler</h4>
-            <ul class="trade-history-list" id="tradeHistoryList">
-                <li class="status-text">Henüz emir geçmişi yok.</li>
-            </ul>
+        <!-- Bildirim Mesajları -->
+        <div id="accountSettingsMessage" class="account-settings-message"></div>
+
+        <div class="account-settings-tabs">
+            <button class="account-settings-tab-btn active" onclick="accountSettingsTabGoster('profile')">Profil</button>
+            <button class="account-settings-tab-btn" onclick="accountSettingsTabGoster('security')">Güvenlik</button>
+            <button class="account-settings-tab-btn" onclick="accountSettingsTabGoster('preferences')">Tercihler</button>
+            <button class="account-settings-tab-btn" onclick="accountSettingsTabGoster('danger')">Hesap</button>
+        </div>
+
+        <div class="account-settings-content">
+            <!-- Profil Sekmesi -->
+            <div id="accountTabProfile" class="account-settings-section active">
+                <div class="profile-image-row">
+                    <div class="profile-image-preview" id="profileImagePreview">👤</div>
+                    <div class="profile-image-actions">
+                        <label class="auth-secondary-btn" style="cursor:pointer; display:inline-block; text-align:center;">
+                            Fotoğraf Yükle
+                            <input type="file" id="profileImageInput" accept="image/jpeg, image/png, image/webp" style="display:none;" onchange="uploadProfileImage()">
+                        </label>
+                        <button class="auth-secondary-btn" style="color:var(--red);" onclick="removeProfileImage()">Kaldır</button>
+                    </div>
+                </div>
+
+                <div class="settings-field">
+                    <label>Ad Soyad</label>
+                    <input type="text" id="profileFullNameInput" placeholder="Adınız Soyadınız">
+                </div>
+                <div class="settings-field">
+                    <label>Email <span style="font-size:11px; color:var(--text-muted); font-weight:normal;">(Giriş için kullanılır)</span></label>
+                    <input type="text" id="profileEmailInput" disabled style="opacity:0.7; cursor:not-allowed;">
+                </div>
+                <button class="auth-primary-btn" onclick="updateProfileInfo()">Bilgileri Kaydet</button>
+            </div>
+
+            <!-- Güvenlik Sekmesi -->
+            <div id="accountTabSecurity" class="account-settings-section">
+                <div class="settings-field">
+                    <label>Mevcut Şifre</label>
+                    <input type="password" id="currentPasswordInput" placeholder="Mevcut Şifreniz">
+                </div>
+                <div class="settings-field">
+                    <label>Yeni Şifre</label>
+                    <input type="password" id="newPasswordInput" placeholder="En az 6 karakter">
+                </div>
+                <div class="settings-field">
+                    <label>Yeni Şifre (Tekrar)</label>
+                    <input type="password" id="confirmNewPasswordInput" placeholder="Yeni şifrenizi doğrulayın">
+                </div>
+                <button class="auth-primary-btn" onclick="changePassword()">Şifreyi Güncelle</button>
+            </div>
+
+            <!-- Tercihler Sekmesi -->
+            <div id="accountTabPreferences" class="account-settings-section">
+                <div class="settings-field">
+                    <label>Varsayılan Açılış Sayfası</label>
+                    <select id="defaultPageSelect" class="settings-select">
+                        <option value="dashboard">Dashboard</option>
+                        <option value="kesfet">Keşfet</option>
+                        <option value="portfoy">Portföyüm</option>
+                        <option value="haberler">Haber Akışı</option>
+                    </select>
+                </div>
+                
+                <h4 style="margin:16px 0 12px 0; font-size:14px; color:var(--text-primary);">Bildirimler</h4>
+                <div class="settings-toggle-row">
+                    <span>Fiyat Alarmı Bildirimleri</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="priceAlertNotificationsToggle">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="settings-toggle-row">
+                    <span>Portföy Haberleri Bildirimleri</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="portfolioNewsNotificationsToggle">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="settings-toggle-row">
+                    <span>Watchlist Haberleri Bildirimleri</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="watchlistNewsNotificationsToggle">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                
+                <h4 style="margin:16px 0 12px 0; font-size:14px; color:var(--text-primary);">Tema</h4>
+                <div class="settings-field">
+                    <select id="themePreferenceSelect" class="settings-select">
+                        <option value="dark">Koyu Tema</option>
+                        <option value="light" disabled>Açık Tema (Yakında)</option>
+                    </select>
+                </div>
+                
+                <button class="auth-primary-btn" onclick="saveUserPreferences()" style="margin-top:12px;">Tercihleri Kaydet</button>
+            </div>
+
+            <!-- Tehlikeli Alan Sekmesi -->
+            <div id="accountTabDanger" class="account-settings-section">
+                <div class="danger-zone-card">
+                    <h4 style="color:var(--red); margin-bottom:8px; font-size:15px;">Hesabı Sil</h4>
+                    <p style="color:var(--text-secondary); font-size:13px; line-height:1.5; margin-bottom:16px;">
+                        Bu işlem geri alınamaz. Portföyün, watchlist'in, işlem geçmişin ve alarmların tamamen silinir.
+                    </p>
+                    <button class="auth-danger-btn" onclick="dangerZoneDeleteAccount()">Hesabımı Sil</button>
+                </div>
+                
+                <div style="margin-top: 24px;">
+                    <button class="auth-secondary-btn" onclick="logoutUser()">Çıkış Yap</button>
+                </div>
+            </div>
         </div>
     </div>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════
      JavaScript Dosyaları
-     (app.js en son yüklenerek diğerlerine bağımlı window.onload'ı tetikler)
      ═══════════════════════════════════════════════════════ -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="/js/charts.js?v=2"></script>
 <script src="/js/news.js?v=2"></script>
-<script src="/js/portfolio.js?v=2"></script>
-<script src="/js/discover.js?v=2"></script>
-<script src="/js/app.js?v=2"></script>
+<script src="/js/portfolio.js?v=4"></script>
+<script src="/js/discover.js?v=3"></script>
+<script src="/js/auth.js?v=3"></script>
+<script src="/js/account-settings.js?v=1"></script>
+<script src="/js/dashboard.js?v=2"></script>
+<script src="/js/alarms.js?v=2"></script>
+<script src="/js/ai.js?v=2"></script>
+<!-- ═══════════════════════════════════════════════════════
+     Hisse Notları / Hedef Modalı
+     ═══════════════════════════════════════════════════════ -->
+<div class="auth-modal-backdrop" id="stockNoteBackdrop" style="display:none; z-index: 1000;" onclick="closeStockNoteModal()"></div>
+<div class="auth-modal" id="stockNoteModal" style="display:none; z-index: 1001; width: 400px; max-width: 90%;">
+    <div class="auth-modal-header" style="margin-bottom: 16px;">
+        <h3 id="stockNoteSymbolTitle" style="font-size: 18px;">Hisse Notları</h3>
+    </div>
+    <div class="auth-error" id="stockNoteError" style="display:none; margin-bottom: 12px;"></div>
+    
+    <div class="auth-input-group">
+        <label>Özel Notunuz</label>
+        <textarea id="stockNoteTextarea" class="stock-note-textarea" placeholder="Bu hisse için notlarınızı buraya yazın..." rows="3" style="width:100%; padding: 12px; background: var(--bg-elevated); border: 1px solid var(--border); color: var(--text-primary); border-radius: var(--radius); resize: vertical;"></textarea>
+    </div>
+    
+    <div style="display:flex; gap: 12px;">
+        <div class="auth-input-group" style="flex:1;">
+            <label>Hedef Fiyat (₺)</label>
+            <input type="number" id="stockTargetPriceInput" placeholder="Örn: 150" min="0" step="0.01" style="width:100%;">
+        </div>
+        <div class="auth-input-group" style="flex:1;">
+            <label>Stop-Loss (₺)</label>
+            <input type="number" id="stockStopLossInput" placeholder="Örn: 90" min="0" step="0.01" style="width:100%;">
+        </div>
+    </div>
+    
+    <div style="display:flex; gap: 8px; margin-top: 16px;">
+        <button class="auth-primary-btn" style="flex:1;" onclick="saveUserStockNote()">Kaydet</button>
+        <button class="auth-danger-btn" style="flex:1;" onclick="deleteUserStockNote()">Sil</button>
+    </div>
+    <button class="auth-secondary-btn" style="margin-top: 8px; width: 100%;" onclick="closeStockNoteModal()">İptal</button>
+</div>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="/js/charts.js?v=2"></script>
+<script src="/js/news.js?v=2"></script>
+<script src="/js/portfolio.js?v=4"></script>
+<script src="/js/discover.js?v=3"></script>
+<script src="/js/auth.js?v=3"></script>
+<script src="/js/account-settings.js?v=1"></script>
+<script src="/js/dashboard.js?v=2"></script>
+<script src="/js/alarms.js?v=2"></script>
+<script src="/js/ai.js?v=2"></script>
+<script src="/js/stock-search.js?v=1"></script>
+<script src="/js/portfolio-analytics.js?v=1"></script>
+<script src="/js/portfolio-ai.js?v=1"></script>
+<script src="/js/app.js?v=5"></script>
+<script src="/js/auto-refresh.js?v=1"></script>
+<script src="/js/user-notes.js?v=1"></script>
 </body>
 </html>

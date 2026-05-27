@@ -31,3 +31,15 @@ build/
 
 ### VS Code ###
 .vscode/
+
+.env
+*.env
+application-local.properties
+application-secret.properties
+
+### Data & Uploads ###
+data/
+*.mv.db
+*.trace.db
+*.db
+uploads/

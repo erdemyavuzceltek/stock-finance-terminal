@@ -83,11 +83,45 @@ public class StockService {
             veri.put("degisimTl",    yuvarla(degisimTl));
             veri.put("hacimTl",      Math.round(hacimTl));
             veri.put("hacimAdet",    hacimAdet);
+            veri.put("previousClose", yuvarla(oncekiKapanis));
 
             return veri;
 
         } catch (Exception e) {
             return null;
+        }
+    }
+
+    /**
+     * Belirtilen hisse kodunun güncel fiyatını döndürür.
+     * Fiyat alınamazsa veya sembol geçersizse {@code null} döner.
+     * Hiçbir zaman exception fırlatmaz.
+     */
+    public Double getStockPrice(String symbol) {
+        try {
+            if (symbol == null || symbol.isBlank()) return null;
+            Map<String, Object> ozet = hisseOzetGetir(symbol);
+            if (ozet == null) return null;
+            Object fiyat = ozet.get("sonFiyat");
+            if (fiyat == null) return null;
+            return Double.valueOf(fiyat.toString());
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
+     * Belirtilen hisse için detaylı veriyi Map olarak döndürür.
+     * Veri alınamazsa boş (empty) map döner.
+     * Hiçbir zaman exception fırlatmaz.
+     */
+    public Map<String, Object> getDetailedStockData(String symbol) {
+        try {
+            if (symbol == null || symbol.isBlank()) return new HashMap<>();
+            Map<String, Object> ozet = hisseOzetGetir(symbol);
+            return ozet != null ? ozet : new HashMap<>();
+        } catch (Exception e) {
+            return new HashMap<>();
         }
     }
 

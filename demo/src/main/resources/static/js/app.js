@@ -1,76 +1,93 @@
 /**
  * app.js — Uygulama geneli yardımcı fonksiyonlar ve başlatma.
- *
- * İçerik:
- *  - Global durum değişkenleri
- *  - Sidebar toggle
- *  - Sekme göster / menü aktif yap
- *  - Sayı formatlama yardımcıları (formatTL, formatYuzde, formatSayi, formatKisaSayi)
- *  - HTML / JS kaçış yardımcıları (escapeHtml, escapeJs)
- *  - window.onload — uygulama başlangıcı
  */
 
 // ── Global Durum ─────────────────────────────────────────────────────────────
 
-/** Kullanıcının portföyü — localStorage ile kalıcı */
-let portfoy = JSON.parse(localStorage.getItem('borsa_portfoy')) || [];
+let piyasaVerisi   = [];
+let siralamaAlan   = 'hisse';
+let siralamaYon    = 'asc';
+let aramaTimer     = null;
 
-/** Kullanıcının izleme listesi (Watchlist) — localStorage ile kalıcı */
-let watchlist = JSON.parse(localStorage.getItem('borsa_watchlist')) || [];
+// ── Güvenli Çalıştırma ────────────────────────────────────────────────────────
 
-/** Son yüklenen BIST 100 piyasa verisi */
-let piyasaVerisi = [];
-
-/** Keşfet tablosundaki aktif sıralama alanı */
-let siralamaAlan = 'hisse';
-
-/** Aktif sıralama yönü ('asc' veya 'desc') */
-let siralamaYon = 'asc';
-
-/** Arama gecikmesi için zamanlayıcı */
-let aramaTimer = null;
-
-/** İşlem panelinde aktif emir bilgisi */
-let aktifTrade = null;
-
-/** Emir geçmişi — localStorage ile kalıcı */
-let emirGecmisi = JSON.parse(localStorage.getItem('borsa_emir_gecmisi')) || [];
+function safeRun(label, fn) {
+    try {
+        if (typeof fn === 'function') fn();
+    } catch (error) {
+        console.error(label + ' failed:', error);
+    }
+}
 
 // ── Kenar Çubuğu ─────────────────────────────────────────────────────────────
 
-/**
- * Sidebar genişliğini daraltılmış / tam mod arasında değiştirir.
- */
 function sidebarToggle() {
-    document.getElementById('sidebar').classList.toggle('collapsed');
+    const sb = document.getElementById('sidebar');
+    if (sb) sb.classList.toggle('collapsed');
 }
 
 // ── Sekme Yönetimi ────────────────────────────────────────────────────────────
 
-/**
- * Belirtilen sekme içeriğini gösterir, diğerlerini gizler.
- * Sekmeye özgü başlatma fonksiyonlarını tetikler.
- *
- * @param {string} id  - Gösterilecek tab-content elementinin id'si
- * @param {Element} el - Tıklanan menü öğesi (opsiyonel)
- */
-function sekmeGoster(id, el) {
+window.toggleNewsSubmenu = function(open) {
+    const submenu = document.querySelector('.news-submenu');
+    if (!submenu) return;
+    if (open) submenu.classList.add('open');
+    else submenu.classList.remove('open');
+};
+
+window.sekmeGoster = function(id, el) {
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
     document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
 
-    document.getElementById(id).classList.add('active');
+    const targetTab = document.getElementById(id);
+    if (targetTab) targetTab.classList.add('active');
     if (el) el.classList.add('active');
 
-    if (id === 'haberler') haberleriBaslat();
-    if (id === 'kesfet' && piyasaVerisi.length === 0) piyasaYukle();
-    if (id === 'gecmis') gecmisiCiz();
-}
+    if (id === 'haberler') {
+        toggleNewsSubmenu(true);
+    } else {
+        toggleNewsSubmenu(false);
+    }
 
-/**
- * Menü öğelerinden yalnızca belirtilen index'tekini aktif yapar.
- *
- * @param {number} index - Aktif yapılacak menü öğesinin sıra numarası
- */
+    if (id === 'dashboard') {
+        safeRun('dashboard load', () => {
+            if (typeof dashboardYukle === 'function') dashboardYukle();
+        });
+    }
+
+    if (id === 'portfoy') {
+        safeRun('portfolio auth state', () => {
+            if (typeof updatePortfolioAuthState === 'function') updatePortfolioAuthState();
+        });
+        const user = (typeof stockxerUser !== 'undefined') ? stockxerUser : null;
+        if (user) {
+            safeRun('portfolio load', () => {
+                if (typeof loadUserPortfolio === 'function') loadUserPortfolio();
+            });
+        }
+    }
+
+    if (id === 'haberler') {
+        safeRun('news load', () => {
+            if (typeof haberleriBaslat === 'function') {
+                haberleriBaslat();
+            } else if (typeof haberKategoriGoster === 'function') {
+                haberKategoriGoster('turkBorsasi');
+            }
+        });
+    }
+
+    if (id === 'kesfet') {
+        if (typeof piyasaYukle === 'function' && (!piyasaVerisi || piyasaVerisi.length === 0)) {
+            safeRun('market load', () => piyasaYukle());
+        }
+    }
+
+    if (typeof restartAutoRefresh === 'function') {
+        restartAutoRefresh();
+    }
+};
+
 function menuAktifYap(index) {
     const items = document.querySelectorAll('.menu-item');
     items.forEach(i => i.classList.remove('active'));
@@ -79,13 +96,6 @@ function menuAktifYap(index) {
 
 // ── Sayı Formatlama ───────────────────────────────────────────────────────────
 
-/**
- * Sayıyı Türk Lirası formatında gösterir (iki ondalık).
- * Geçersiz değer için '-' döner.
- *
- * @param {*} n - Formatlanacak sayı
- * @returns {string}
- */
 function formatTL(n) {
     if (n === null || n === undefined || isNaN(Number(n))) return '-';
     return Number(n).toLocaleString('tr-TR', {
@@ -94,13 +104,6 @@ function formatTL(n) {
     });
 }
 
-/**
- * Sayıyı yüzde formatında gösterir (+ işareti ile).
- * Geçersiz değer için '-' döner.
- *
- * @param {*} n - Formatlanacak sayı
- * @returns {string}
- */
 function formatYuzde(n) {
     if (n === null || n === undefined || isNaN(Number(n))) return '-';
     const num  = Number(n);
@@ -111,48 +114,27 @@ function formatYuzde(n) {
     }) + '%';
 }
 
-/**
- * Sayıyı Türkçe yerel format ile gösterir (ondalıksız).
- * Geçersiz değer için '-' döner.
- *
- * @param {*} n - Formatlanacak sayı
- * @returns {string}
- */
 function formatSayi(n) {
     if (n === null || n === undefined || isNaN(Number(n))) return '-';
     return Number(n).toLocaleString('tr-TR');
 }
 
-/**
- * Büyük sayıları kısa birim formatında gösterir (Mn, Mr, Bin).
- * Geçersiz değer için '-' döner.
- *
- * @param {*} n - Formatlanacak sayı
- * @returns {string}
- */
 function formatKisaSayi(n) {
     if (n === null || n === undefined || isNaN(Number(n))) return '-';
     const num = Number(n);
-
     if (Math.abs(num) >= 1_000_000_000)
         return (num / 1_000_000_000).toLocaleString('tr-TR', { maximumFractionDigits: 1 }) + ' Mr';
     if (Math.abs(num) >= 1_000_000)
         return (num / 1_000_000).toLocaleString('tr-TR', { maximumFractionDigits: 1 }) + ' Mn';
     if (Math.abs(num) >= 1_000)
         return (num / 1_000).toLocaleString('tr-TR', { maximumFractionDigits: 1 }) + ' Bin';
-
     return num.toLocaleString('tr-TR');
 }
 
 // ── Kaçış Yardımcıları ────────────────────────────────────────────────────────
 
-/**
- * Metni HTML için güvenli hale getirir (XSS koruması).
- *
- * @param {*} text - Kaçırılacak metin
- * @returns {string}
- */
 function escapeHtml(text) {
+    if (text === null || text === undefined) return '';
     return String(text)
         .replaceAll('&',  '&amp;')
         .replaceAll('<',  '&lt;')
@@ -161,41 +143,69 @@ function escapeHtml(text) {
         .replaceAll("'",  '&#039;');
 }
 
-/**
- * Metni JavaScript dize sabiti içinde kullanmak için kaçırır.
- *
- * @param {*} text - Kaçırılacak metin
- * @returns {string}
- */
 function escapeJs(text) {
+    if (text === null || text === undefined) return '';
     return String(text).replaceAll('\\', '\\\\').replaceAll("'", "\\'");
 }
 
-// ── Dışa Tıklama — Arama Dropdown ────────────────────────────────────────────
+// ── Eski Dışa Tıklama Silindi (StockSearch kendi yönetiyor) ─────────────────
 
-document.addEventListener('click', function (e) {
-    const dropdowns = ['aramaDropdown', 'portfoyAramaDropdown', 'watchlistAramaDropdown'];
-    dropdowns.forEach(id => {
-        const dd = document.getElementById(id);
-        if (dd && !e.target.closest('.search-box')) {
-            dd.style.display = 'none';
-        }
-    });
-});
+// ── Window Scope Bağlamaları ──────────────────────────────────────────────────
+// (index.html onclick için gerekli tüm fonksiyonlar)
+
+window.sidebarToggle  = sidebarToggle;
+window.menuAktifYap   = menuAktifYap;
+window.formatTL       = formatTL;
+window.formatYuzde    = formatYuzde;
+window.formatSayi     = formatSayi;
+window.formatKisaSayi = formatKisaSayi;
+window.escapeHtml     = escapeHtml;
+window.escapeJs       = escapeJs;
+window.safeRun        = safeRun;
 
 // ── Uygulama Başlangıcı ───────────────────────────────────────────────────────
 
-/**
- * Sayfa yüklendiğinde piyasa verisi, portföy tablosu ve emir geçmişini başlatır.
- */
-window.onload = async function () {
-    await piyasaYukle();
-    await tabloyCiz();
-    await watchlistCiz();
-    emirGecmisiCiz();
-    
-    // Varsayılan olarak Aktif Portföy sekmesini aç
-    if (typeof window.portfoySekmeGoster === 'function') {
-        window.portfoySekmeGoster('portfoyAktif');
+document.addEventListener('DOMContentLoaded', function() {
+    safeRun('sidebar user update', () => {
+        if (typeof updateSidebarUserBox === 'function') updateSidebarUserBox();
+    });
+
+    safeRun('portfolio auth state', () => {
+        if (typeof updatePortfolioAuthState === 'function') updatePortfolioAuthState();
+    });
+
+    safeRun('dashboard load', () => {
+        if (typeof dashboardYukle === 'function') dashboardYukle();
+    });
+
+    safeRun('market load', () => {
+        if (typeof piyasaYukle === 'function') piyasaYukle();
+    });
+
+    safeRun('news load', () => {
+        if (typeof haberleriBaslat === 'function') {
+            haberleriBaslat();
+        } else if (typeof haberKategoriGoster === 'function') {
+            haberKategoriGoster('turkBorsasi');
+        }
+    });
+
+    // Portföy ilk aktif subtabı göster
+    safeRun('portfolio first subtab', () => {
+        const firstSubtab = document.getElementById('portfoyAktif');
+        if (firstSubtab) firstSubtab.style.display = 'block';
+    });
+
+    // İlk menü öğesini aktif yap (zaten HTML'de active var, yedek)
+    const activeMenu = document.querySelector('.menu-item.active');
+    if (!activeMenu) menuAktifYap(0);
+
+    // StockSearch Kurulumu
+    if (typeof StockSearch !== 'undefined') {
+        StockSearch.setup({ inputId: 'kesfetArama', dropdownId: 'kesfetAramaDropdown', onSelect: (symbol) => teknikAnalizAc(symbol) });
+        StockSearch.setup({ inputId: 'hisseInput', dropdownId: 'portfoyHisseDropdown' });
+        StockSearch.setup({ inputId: 'watchlistInput', dropdownId: 'watchlistHisseDropdown', onSelect: () => watchlisteEkleManuel() });
+        StockSearch.setup({ inputId: 'alarmSymbol', dropdownId: 'alarmHisseDropdown' });
+        StockSearch.setup({ inputId: 'newsSearchInput', dropdownId: 'newsHisseDropdown', onSelect: () => haberAra() });
     }
-};
+});

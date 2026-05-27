@@ -414,6 +414,33 @@ public class MarketController {
         return sonuc;
     }
 
+    // ── /api/market/stocks ────────────────────────────────────────────────────
+
+    /**
+     * Frontend dropdown bileşeni için tüm hisse kodları ve isimlerini döndürür.
+     */
+    @GetMapping("/api/market/stocks")
+    public Map<String, Object> marketStocksGetir() {
+        Map<String, Object> sonuc = new HashMap<>();
+        try {
+            List<Map<String, String>> hisseler = new ArrayList<>();
+            for (Map.Entry<String, String> entry : StockConstants.SIRKET_ADLARI.entrySet()) {
+                Map<String, String> hisse = new HashMap<>();
+                hisse.put("kod", entry.getKey());
+                hisse.put("ad", entry.getValue());
+                hisseler.add(hisse);
+            }
+            hisseler.sort(Comparator.comparing(a -> a.get("kod")));
+            
+            sonuc.put("durum", "basarili");
+            sonuc.put("hisseler", hisseler);
+        } catch (Exception e) {
+            sonuc.put("durum", "hata");
+            sonuc.put("mesaj", e.getMessage());
+        }
+        return sonuc;
+    }
+
     // ── Yardımcı metotlar ─────────────────────────────────────────────────────
 
     /** Teknik veri alınamayan durumlar için standart hata yanıtı oluşturur. */
